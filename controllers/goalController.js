@@ -1,4 +1,4 @@
-import Goal from "../models/Goal.js";
+import Goal from "../models/goal.js";
 import Transaction from "../models/transaction.js";
 
 

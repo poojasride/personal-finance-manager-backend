@@ -1,6 +1,6 @@
 import Budget from "../models/budget.js";
 import Transaction from "../models/transaction.js";
-import Goal from "../models/Goal.js";
+import Goal from "../models/goal.js";
 import { createNotification } from "../controllers/notificationController.js";
 
 // ===============================

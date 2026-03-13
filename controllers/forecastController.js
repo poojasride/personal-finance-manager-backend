@@ -1,5 +1,5 @@
 import Transaction from "../models/transaction.js";
-import Goal from "../models/Goal.js";
+import Goal from "../models/goal.js";
 
 
 // Forecast savings and expenses
