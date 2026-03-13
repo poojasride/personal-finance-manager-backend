@@ -64,6 +64,19 @@ export const login = async (req, res) => {
   }
 };
 
+// LOGOUT
+export const logout = async (req, res) => {
+  try {
+    res.clearCookie("token");
+
+    res.json({
+      message: "Logout successful",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Get User Data Securely
 export const getProfile = async (req, res) => {
   res.json({
@@ -71,6 +84,75 @@ export const getProfile = async (req, res) => {
 
     user: req.user,
   });
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.username = name || user.username;
+    user.email = email || user.email;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      user,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+
+export const changePassword = async (req, res) => {
+  try {
+    const { current, newPassword } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(current, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Current password incorrect",
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    user.password = hashedPassword;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password updated successfully",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
 };
 
 export async function forgotPassword(req, res) {

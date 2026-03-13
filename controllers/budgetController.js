@@ -15,7 +15,6 @@ export const createBudget = async (req, res) => {
 };
 
 
-
 // GET All Budgets with usage monitoring
 export const getBudgets = async (req, res) => {
   try {
@@ -28,7 +27,7 @@ export const getBudgets = async (req, res) => {
         const spent = await Transaction.aggregate([
           {
             $match: {
-              category: budget.category,
+              category: budget.category.trim(),
               type: "expense",
               date: {
                 $gte: budget.startDate,
@@ -71,6 +70,68 @@ export const getBudgets = async (req, res) => {
 
     res.json(result);
 
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getBudgetSummary = async (req, res) => {
+  try {
+    const budgets = await Budget.find();
+
+    const summary = await Promise.all(
+      budgets.map(async (budget) => {
+        // Total expense for this category within budget period
+        const expenses = await Transaction.aggregate([
+          {
+            $match: {
+              type: "expense",
+              category: budget.category,
+              date: {
+                $gte: budget.startDate,
+                $lte: budget.endDate,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalSpent: { $sum: "$amount" },
+            },
+          },
+        ]);
+
+        const totalSpent = expenses.length > 0 ? expenses[0].totalSpent : 0;
+
+        const remaining = budget.limitAmount - totalSpent;
+
+        const percentageUsed =
+          (totalSpent / budget.limitAmount) * 100;
+
+        let status = "Safe";
+
+        if (percentageUsed >= 100) {
+          status = "Exceeded";
+        } else if (percentageUsed >= 80) {
+          status = "Warning";
+        }
+
+        return {
+          _id: budget._id,
+          category: budget.category,
+          limitAmount: budget.limitAmount,
+          totalSpent,
+          remaining,
+          percentageUsed: percentageUsed.toFixed(2),
+          status,
+          period: budget.period,
+          startDate: budget.startDate,
+          endDate: budget.endDate,
+        };
+      })
+    );
+
+    res.json(summary);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

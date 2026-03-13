@@ -13,7 +13,8 @@ import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import exportRoutes from "./routes/exportRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
-
+import categoryRoutes from "./routes/categoryRoutes.js"
+import "./utils/cronJobs.js";
 
 dotenv.config();
 
@@ -69,8 +70,8 @@ app.use("/api/export", exportRoutes);
 //Profile Management
 app.use("/api/profile", profileRoutes);
 
-
-
+//For categories
+app.use("/api/categories", categoryRoutes);
 
 // ==========================
 

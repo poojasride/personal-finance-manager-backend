@@ -1,32 +1,89 @@
-import { error } from "console";
 import Transaction from "../models/transaction.js";
 import { exportCSV } from "../utils/csvExport.js";
 import { exportPDF } from "../utils/pdfExport.js";
 
-// CSV export
+// ===============================
+// EXPORT CSV REPORT
+// ===============================
 export const exportCSVReport = async (req, res) => {
-  const data = await Transaction.find({
-    user: req.user._id,
-  });
 
-  if (!data || data.length === 0) {
-    return res.status(401).json({ message: "No records found" });
+  try {
+
+    const { from, to } = req.query;
+
+    const filter = {
+      user: req.user._id
+    };
+
+    // Date filter
+    if (from && to) {
+      filter.date = {
+        $gte: new Date(from),
+        $lte: new Date(to)
+      };
+    }
+
+    const data = await Transaction.find(filter).lean();
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        message: "No records found"
+      });
+    }
+
+    const csv = exportCSV(data);
+
+    res.header("Content-Type", "text/csv");
+    res.attachment("transactions-report.csv");
+
+    return res.send(csv);
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: error.message
+    });
+
   }
-
-  const csv = exportCSV(data);
-
-  res.header("Content-Type", "text/csv");
-
-  res.attachment("report.csv");
-
-  res.send(csv);
 };
 
-// PDF export
+
+// ===============================
+// EXPORT PDF REPORT
+// ===============================
 export const exportPDFReport = async (req, res) => {
-  const data = await Transaction.find({
-    user: req.user._id,
-  });
 
-  exportPDF(res, data);
+  try {
+
+    const { from, to } = req.query;
+
+    const filter = {
+      user: req.user._id
+    };
+
+    if (from && to) {
+      filter.date = {
+        $gte: new Date(from),
+        $lte: new Date(to)
+      };
+    }
+
+    const data = await Transaction.find(filter).lean();
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        message: "No records found"
+      });
+    }
+
+    exportPDF(res, data);
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: error.message
+    });
+
+  }
 };
+

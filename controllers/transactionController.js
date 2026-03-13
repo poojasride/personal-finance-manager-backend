@@ -1,4 +1,11 @@
 import Transaction from "../models/transaction.js";
+import Budget from "../models/budget.js";
+
+import {
+  checkBudgetLimit,
+  checkGoalProgress,
+} from "../services/notificationService.js";
+
 // CREATE Transaction
 export const createTransaction = async (req, res) => {
   try {
@@ -49,7 +56,7 @@ export const createTransaction = async (req, res) => {
       }
     }
 
-    const transaction = await Transaction.create({
+    const newTransaction = await Transaction.create({
       title,
       description,
       amount,
@@ -61,9 +68,49 @@ export const createTransaction = async (req, res) => {
       nextRecurringDate,
     });
 
+    // After saving transaction
+    if (newTransaction.type === "expense") {
+      const budget = await Budget.findOne({
+        category: newTransaction.category,
+        startDate: { $lte: newTransaction.date },
+        endDate: { $gte: newTransaction.date },
+      });
+
+      if (budget) {
+        const totalExpense = await Transaction.aggregate([
+          {
+            $match: {
+              type: "expense",
+              category: budget.category,
+              date: {
+                $gte: budget.startDate,
+                $lte: budget.endDate,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalSpent: { $sum: "$amount" },
+            },
+          },
+        ]);
+
+        const spent = totalExpense.length > 0 ? totalExpense[0].totalSpent : 0;
+
+        if (spent > budget.limitAmount) {
+          console.log("🚨 Budget Exceeded!");
+        }
+      }
+    }
+
+    // ADD THIS CODE
+    await checkBudgetLimit(req.user._id);
+    await checkGoalProgress(req.user._id);
+
     res.status(201).json({
       success: true,
-      data: transaction,
+      data: newTransaction,
     });
   } catch (error) {
     res.status(500).json({
@@ -130,14 +177,101 @@ export const getTransactionById = async (req, res) => {
 // UPDATE Transaction
 export const updateTransaction = async (req, res) => {
   try {
+    const { date, isRecurring, recurringInterval } = req.body;
+
+    let nextRecurringDate = null;
+
+    // Handle recurring logic
+    if (isRecurring && recurringInterval) {
+      const baseDate = date ? new Date(date) : new Date();
+
+      switch (recurringInterval) {
+        case "daily":
+          nextRecurringDate = new Date(baseDate);
+          nextRecurringDate.setDate(nextRecurringDate.getDate() + 1);
+          break;
+
+        case "weekly":
+          nextRecurringDate = new Date(baseDate);
+          nextRecurringDate.setDate(nextRecurringDate.getDate() + 7);
+          break;
+
+        case "monthly":
+          nextRecurringDate = new Date(baseDate);
+          nextRecurringDate.setMonth(nextRecurringDate.getMonth() + 1);
+          break;
+
+        case "yearly":
+          nextRecurringDate = new Date(baseDate);
+          nextRecurringDate.setFullYear(nextRecurringDate.getFullYear() + 1);
+          break;
+
+        default:
+          nextRecurringDate = null;
+      }
+    }
+
+    const updateData = {
+      ...req.body,
+      nextRecurringDate,
+    };
+
     const transaction = await Transaction.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       {
         new: true,
         runValidators: true,
       },
     );
+
+       // After saving transaction
+    if (transaction.type === "expense") {
+      const budget = await Budget.findOne({
+        category: transaction.category,
+        startDate: { $lte: transaction.date },
+        endDate: { $gte: transaction.date },
+      });
+
+      if (budget) {
+        const totalExpense = await Transaction.aggregate([
+          {
+            $match: {
+              type: "expense",
+              category: budget.category,
+              date: {
+                $gte: budget.startDate,
+                $lte: budget.endDate,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalSpent: { $sum: "$amount" },
+            },
+          },
+        ]);
+
+        const spent = totalExpense.length > 0 ? totalExpense[0].totalSpent : 0;
+
+        if (spent > budget.limitAmount) {
+          console.log("🚨 Budget Exceeded!");
+        }
+      }
+    }
+
+    // ADD THIS CODE
+    await checkBudgetLimit(req.user._id);
+    await checkGoalProgress(req.user._id);
+
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found",
+      });
+    }
 
     res.json({
       success: true,
