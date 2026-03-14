@@ -13,8 +13,10 @@ import reportRoutes from "./routes/reportRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import exportRoutes from "./routes/exportRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
-import categoryRoutes from "./routes/categoryRoutes.js"
+import categoryRoutes from "./routes/categoryRoutes.js";
 import "./utils/cronJobs.js";
+
+import aiRoutes from "./routes/aiRoutes.js";
 
 dotenv.config();
 
@@ -22,22 +24,21 @@ connectDB();
 
 const app = express();
 
-
 // CORS
-app.use(cors({
-  origin: "https://personal-finance-manager-project.netlify.app",
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "https://personal-finance-manager-project.netlify.app",
+    credentials: true,
+  }),
+);
 
 // Body parser
 app.use(express.json());
-
 
 // Test route
 app.get("/", (req, res) => {
   res.send("API Running Successfully");
 });
-
 
 // ==========================
 // REGISTER ALL ROUTES HERE
@@ -72,6 +73,9 @@ app.use("/api/profile", profileRoutes);
 
 //For categories
 app.use("/api/categories", categoryRoutes);
+
+//For ai
+app.use("/api/ai", aiRoutes);
 
 // ==========================
 
