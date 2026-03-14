@@ -25,7 +25,7 @@ const app = express();
 
 // CORS
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: "https://personal-finance-manager-backend-n06b.onrender.com",
   credentials: true,
 }));
 
