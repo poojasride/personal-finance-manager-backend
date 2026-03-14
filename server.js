@@ -25,7 +25,7 @@ const app = express();
 
 // CORS
 app.use(cors({
-  origin: "https://personal-finance-manager-backend-n06b.onrender.com",
+  origin: "https://personal-finance-manager-project.netlify.app",
   credentials: true,
 }));
 
