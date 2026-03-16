@@ -16,7 +16,6 @@ import profileRoutes from "./routes/profileRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import "./utils/cronJobs.js";
 
-import aiRoutes from "./routes/aiRoutes.js";
 
 dotenv.config();
 
@@ -74,8 +73,6 @@ app.use("/api/profile", profileRoutes);
 //For categories
 app.use("/api/categories", categoryRoutes);
 
-//For ai
-app.use("/api/ai", aiRoutes);
 
 // ==========================
 
