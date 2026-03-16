@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
+import Budget from "../models/Budget.js";
+import Category from "../models/category.js";
 
 
 // REGISTER
@@ -17,18 +19,34 @@ export const register = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = new User({
-      username : name,
+      username: name,
       email,
       password: hashedPassword,
     });
 
     await user.save();
 
+    // create default category
+    const category = await Category.create({
+      user: user._id,
+      name: "General",
+      type: "expense",
+    });
+
+    // create default budget
+    await Budget.create({
+      user: user._id,
+      category: category.name, // reference category
+      limitAmount: 10000,
+      startDate: new Date(),
+      endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+    });
+
     res.status(201).json({ message: "User registered successfully" });
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
