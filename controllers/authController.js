@@ -33,7 +33,7 @@ export const register = async (req, res) => {
     const category = await Category.create({
       user: user._id,
       name: "General",
-      type: "expense",
+      type: "Expense",
     });
 
     // create default budget
