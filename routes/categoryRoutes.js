@@ -6,11 +6,13 @@ import {
   deleteCategory,
 } from "../controllers/categoryController.js";
 
+import { protect } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
 
 router.get("/", getCategories);
 
-router.post("/", createCategory);
+router.post("/", protect, createCategory);
 
 router.put("/:id", updateCategory);
 

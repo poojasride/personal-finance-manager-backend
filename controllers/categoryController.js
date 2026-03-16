@@ -29,10 +29,12 @@ export const createCategory = async (req, res) => {
   try {
 
     const { name, type } = req.body;
+    const user = req.user._id;
 
     const newCategory = new Category({
       name,
       type,
+      user,
     });
 
     const saved = await newCategory.save();
