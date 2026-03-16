@@ -57,6 +57,7 @@ export const createTransaction = async (req, res) => {
     }
 
     const newTransaction = await Transaction.create({
+      user: req.user._id,
       title,
       description,
       amount,
