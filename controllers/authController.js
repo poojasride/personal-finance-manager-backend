@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
-import Budget from "../models/Budget.js";
+import Budget from "../models/budget.js";
 import Category from "../models/category.js";
 
 
