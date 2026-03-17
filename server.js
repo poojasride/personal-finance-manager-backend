@@ -22,8 +22,8 @@ connectDB();
 
 const app = express();
 
-const API_URL = "http://localhost:5173";
-// const API_URL =  "https://personal-finance-manager-03.netlify.app",
+// const API_URL = "http://localhost:5173";
+const API_URL =  "https://personal-finance-manager-03.netlify.app";
 
 // CORS
 app.use(
