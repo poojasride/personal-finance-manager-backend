@@ -16,17 +16,19 @@ import profileRoutes from "./routes/profileRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import "./utils/cronJobs.js";
 
-
 dotenv.config();
 
 connectDB();
 
 const app = express();
 
+const API_URL = "http://localhost:5173";
+// const API_URL =  "https://personal-finance-manager-03.netlify.app",
+
 // CORS
 app.use(
   cors({
-    origin: "https://personal-finance-manager-03.netlify.app",
+    origin: API_URL,
     credentials: true,
   }),
 );
@@ -72,7 +74,6 @@ app.use("/api/profile", profileRoutes);
 
 //For categories
 app.use("/api/categories", categoryRoutes);
-
 
 // ==========================
 

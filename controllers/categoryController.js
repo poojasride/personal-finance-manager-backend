@@ -9,8 +9,13 @@ export const getCategories = async (req, res) => {
   try {
 
     const { type } = req.query;
+    const user = req.user._id;
 
-    const filter = type ? { type } : {};
+    const filter = { user };
+
+    if (type) {
+      filter.type = type;
+    }
 
     const categories = await Category.find(filter);
 

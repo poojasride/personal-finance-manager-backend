@@ -140,11 +140,7 @@ export const getTransactions = async (req, res) => {
 
     const transactions = await Transaction.find(filter).sort({ date: -1 });
 
-    res.json({
-      success: true,
-      count: transactions.length,
-      data: transactions,
-    });
+    res.json(transactions);
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -226,7 +222,7 @@ export const updateTransaction = async (req, res) => {
       },
     );
 
-       // After saving transaction
+    // After saving transaction
     if (transaction.type === "expense") {
       const budget = await Budget.findOne({
         category: transaction.category,
@@ -265,7 +261,6 @@ export const updateTransaction = async (req, res) => {
     // ADD THIS CODE
     await checkBudgetLimit(req.user._id);
     await checkGoalProgress(req.user._id);
-
 
     if (!transaction) {
       return res.status(404).json({

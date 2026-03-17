@@ -24,7 +24,7 @@ router.get("/summary/monthly", getMonthlyExpenses);
 
 router.get("/:id", getTransactionById);
 
-router.put("/:id", updateTransaction);
+router.put("/:id",protect, updateTransaction);
 
 router.delete("/:id", deleteTransaction);
 
