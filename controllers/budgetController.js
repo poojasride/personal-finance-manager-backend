@@ -2,24 +2,41 @@ import Budget from "../models/budget.js";
 import Transaction from "../models/transaction.js";
 
 
+// ============================
 // CREATE Budget
+// ============================
 export const createBudget = async (req, res) => {
   try {
-    const budget = await Budget.create(req.body);
+    const user = req.user?._id;
+
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const budget = await Budget.create({
+      ...req.body,
+      user, // 👈 attach user
+    });
 
     res.status(201).json(budget);
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 
-// GET All Budgets with usage monitoring
+// ============================
+// GET All Budgets (with usage)
+// ============================
 export const getBudgets = async (req, res) => {
   try {
+    const user = req.user?._id;
 
-    const budgets = await Budget.find();
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const budgets = await Budget.find({ user });
 
     const result = await Promise.all(
       budgets.map(async (budget) => {
@@ -27,7 +44,8 @@ export const getBudgets = async (req, res) => {
         const spent = await Transaction.aggregate([
           {
             $match: {
-              category: budget.category.trim(),
+              user: user, // 👈 filter by user
+              category: budget.category,
               type: "expense",
               date: {
                 $gte: budget.startDate,
@@ -45,18 +63,17 @@ export const getBudgets = async (req, res) => {
 
         const totalSpent = spent[0]?.total || 0;
 
-        const remaining =
-          budget.limitAmount - totalSpent;
+        const remaining = budget.limitAmount - totalSpent;
 
         const percentUsed =
-          (totalSpent / budget.limitAmount) * 100;
+          budget.limitAmount > 0
+            ? (totalSpent / budget.limitAmount) * 100
+            : 0;
 
         let alert = "safe";
 
-        if (percentUsed >= 100)
-          alert = "exceeded";
-        else if (percentUsed >= 80)
-          alert = "warning";
+        if (percentUsed >= 100) alert = "exceeded";
+        else if (percentUsed >= 80) alert = "warning";
 
         return {
           ...budget._doc,
@@ -75,16 +92,27 @@ export const getBudgets = async (req, res) => {
   }
 };
 
+
+// ============================
+// GET Budget Summary
+// ============================
 export const getBudgetSummary = async (req, res) => {
   try {
-    const budgets = await Budget.find();
+    const user = req.user?._id;
+
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const budgets = await Budget.find({ user });
 
     const summary = await Promise.all(
       budgets.map(async (budget) => {
-        // Total expense for this category within budget period
+
         const expenses = await Transaction.aggregate([
           {
             $match: {
+              user: user, // 👈 IMPORTANT
               type: "expense",
               category: budget.category,
               date: {
@@ -101,20 +129,19 @@ export const getBudgetSummary = async (req, res) => {
           },
         ]);
 
-        const totalSpent = expenses.length > 0 ? expenses[0].totalSpent : 0;
+        const totalSpent = expenses[0]?.totalSpent || 0;
 
         const remaining = budget.limitAmount - totalSpent;
 
         const percentageUsed =
-          (totalSpent / budget.limitAmount) * 100;
+          budget.limitAmount > 0
+            ? (totalSpent / budget.limitAmount) * 100
+            : 0;
 
         let status = "Safe";
 
-        if (percentageUsed >= 100) {
-          status = "Exceeded";
-        } else if (percentageUsed >= 80) {
-          status = "Warning";
-        }
+        if (percentageUsed >= 100) status = "Exceeded";
+        else if (percentageUsed >= 80) status = "Warning";
 
         return {
           _id: budget._id,
@@ -132,19 +159,28 @@ export const getBudgetSummary = async (req, res) => {
     );
 
     res.json(summary);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 
-
+// ============================
 // GET Single Budget
+// ============================
 export const getBudgetById = async (req, res) => {
   try {
+    const user = req.user?._id;
 
-    const budget =
-      await Budget.findById(req.params.id);
+    const budget = await Budget.findOne({
+      _id: req.params.id,
+      user,
+    });
+
+    if (!budget) {
+      return res.status(404).json({ message: "Budget not found" });
+    }
 
     res.json(budget);
 
@@ -154,17 +190,22 @@ export const getBudgetById = async (req, res) => {
 };
 
 
-
+// ============================
 // UPDATE Budget
+// ============================
 export const updateBudget = async (req, res) => {
   try {
+    const user = req.user?._id;
 
-    const budget =
-      await Budget.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        { new: true }
-      );
+    const budget = await Budget.findOneAndUpdate(
+      { _id: req.params.id, user },
+      req.body,
+      { new: true }
+    );
+
+    if (!budget) {
+      return res.status(404).json({ message: "Budget not found" });
+    }
 
     res.json(budget);
 
@@ -174,14 +215,21 @@ export const updateBudget = async (req, res) => {
 };
 
 
-
+// ============================
 // DELETE Budget
+// ============================
 export const deleteBudget = async (req, res) => {
   try {
+    const user = req.user?._id;
 
-    await Budget.findByIdAndDelete(
-      req.params.id
-    );
+    const budget = await Budget.findOneAndDelete({
+      _id: req.params.id,
+      user,
+    });
+
+    if (!budget) {
+      return res.status(404).json({ message: "Budget not found" });
+    }
 
     res.json({
       message: "Budget deleted",
