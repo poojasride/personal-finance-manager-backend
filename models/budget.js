@@ -27,10 +27,14 @@ const budgetSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export default mongoose.model("Budget", budgetSchema);
