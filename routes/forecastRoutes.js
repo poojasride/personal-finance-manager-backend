@@ -5,10 +5,11 @@ import {
   forecastGoalCompletion,
 } from "../controllers/forecastController.js";
 
+import { protect } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
-
-router.get("/", getFinancialForecast);
-
-router.get("/goal/:id", forecastGoalCompletion);
+6
+router.get("/", protect, getFinancialForecast);
+router.get("/goal/:id", protect, forecastGoalCompletion);
 
 export default router;
