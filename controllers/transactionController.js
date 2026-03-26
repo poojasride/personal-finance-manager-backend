@@ -126,17 +126,24 @@ export const getTransactions = async (req, res) => {
   try {
     const { category, type, startDate, endDate } = req.query;
 
-    let filter = {};
+    const user = req.user?._id; // 👈 get logged-in user
+
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    let filter = { user }; // 👈 IMPORTANT (filter by user)
 
     if (category) filter.category = category;
 
     if (type) filter.type = type;
 
-    if (startDate && endDate)
+    if (startDate && endDate) {
       filter.date = {
         $gte: new Date(startDate),
         $lte: new Date(endDate),
       };
+    }
 
     const transactions = await Transaction.find(filter).sort({ date: -1 });
 

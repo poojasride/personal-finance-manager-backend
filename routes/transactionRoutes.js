@@ -16,7 +16,7 @@ const router = express.Router();
 
 router.post("/", protect, createTransaction);
 
-router.get("/", getTransactions);
+router.get("/", protect, getTransactions);
 
 router.get("/summary/category", getCategorySummary);
 
@@ -24,7 +24,7 @@ router.get("/summary/monthly", getMonthlyExpenses);
 
 router.get("/:id", getTransactionById);
 
-router.put("/:id",protect, updateTransaction);
+router.put("/:id", protect, updateTransaction);
 
 router.delete("/:id", deleteTransaction);
 
