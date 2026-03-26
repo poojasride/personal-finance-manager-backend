@@ -1,13 +1,11 @@
 import Category from "../models/category.js";
 
-
 // ============================
 // GET ALL CATEGORIES
 // ============================
 
 export const getCategories = async (req, res) => {
   try {
-
     const { type } = req.query;
     const user = req.user._id;
 
@@ -20,7 +18,6 @@ export const getCategories = async (req, res) => {
     const categories = await Category.find(filter);
 
     res.json(categories);
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -32,9 +29,12 @@ export const getCategories = async (req, res) => {
 
 export const createCategory = async (req, res) => {
   try {
-
     const { name, type } = req.body;
     const user = req.user._id;
+
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
     const newCategory = new Category({
       name,
@@ -45,12 +45,10 @@ export const createCategory = async (req, res) => {
     const saved = await newCategory.save();
 
     res.status(201).json(saved);
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 // ============================
 // UPDATE CATEGORY
@@ -58,22 +56,17 @@ export const createCategory = async (req, res) => {
 
 export const updateCategory = async (req, res) => {
   try {
-
     const { id } = req.params;
 
-    const updated = await Category.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true }
-    );
+    const updated = await Category.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
 
     res.json(updated);
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 // ============================
 // DELETE CATEGORY
@@ -81,13 +74,11 @@ export const updateCategory = async (req, res) => {
 
 export const deleteCategory = async (req, res) => {
   try {
-
     const { id } = req.params;
 
     await Category.findByIdAndDelete(id);
 
     res.json({ message: "Category deleted" });
-
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
