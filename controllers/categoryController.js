@@ -9,6 +9,10 @@ export const getCategories = async (req, res) => {
     const { type } = req.query;
     const user = req.user._id;
 
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const filter = { user };
 
     if (type) {
