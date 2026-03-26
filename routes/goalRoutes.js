@@ -1,5 +1,4 @@
 import express from "express";
-
 import {
   createGoal,
   getGoals,
@@ -8,16 +7,14 @@ import {
   addSavingsToGoal,
 } from "../controllers/goalController.js";
 
+import { protect } from "../middleware/authMiddleware.js";
+
 const router = express.Router();
 
-router.post("/", createGoal);
-
-router.get("/", getGoals);
-
-router.put("/:id", updateGoal);
-
-router.delete("/:id", deleteGoal);
-
-router.post("/:id/add-savings", addSavingsToGoal);
+router.post("/", protect, createGoal);
+router.get("/", protect, getGoals);
+router.put("/:id", protect, updateGoal);
+router.delete("/:id", protect, deleteGoal);
+router.patch("/:id/add", protect, addSavingsToGoal);
 
 export default router;

@@ -2,10 +2,21 @@ import Goal from "../models/goal.js";
 import Transaction from "../models/transaction.js";
 
 
+// ============================
 // CREATE Goal
+// ============================
 export const createGoal = async (req, res) => {
   try {
-    const goal = await Goal.create(req.body);
+    const user = req.user?._id;
+
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const goal = await Goal.create({
+      ...req.body,
+      user, // 👈 attach user
+    });
 
     res.status(201).json(goal);
 
@@ -15,16 +26,26 @@ export const createGoal = async (req, res) => {
 };
 
 
-// GET All Goals with Progress
+// ============================
+// GET All Goals (with progress)
+// ============================
 export const getGoals = async (req, res) => {
   try {
 
-    const goals = await Goal.find();
+    const user = req.user?._id;
+
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const goals = await Goal.find({ user });
 
     const result = goals.map(goal => {
 
       const progress =
-        (goal.savedAmount / goal.targetAmount) * 100;
+        goal.targetAmount > 0
+          ? (goal.savedAmount / goal.targetAmount) * 100
+          : 0;
 
       const remaining =
         goal.targetAmount - goal.savedAmount;
@@ -44,16 +65,23 @@ export const getGoals = async (req, res) => {
 };
 
 
+// ============================
 // UPDATE Goal
+// ============================
 export const updateGoal = async (req, res) => {
   try {
 
-    const goal =
-      await Goal.findByIdAndUpdate(
-        req.params.id,
-        req.body,
-        { new: true }
-      );
+    const user = req.user?._id;
+
+    const goal = await Goal.findOneAndUpdate(
+      { _id: req.params.id, user }, // 👈 ownership check
+      req.body,
+      { new: true }
+    );
+
+    if (!goal) {
+      return res.status(404).json({ message: "Goal not found" });
+    }
 
     res.json(goal);
 
@@ -63,13 +91,22 @@ export const updateGoal = async (req, res) => {
 };
 
 
+// ============================
 // DELETE Goal
+// ============================
 export const deleteGoal = async (req, res) => {
   try {
 
-    await Goal.findByIdAndDelete(
-      req.params.id
-    );
+    const user = req.user?._id;
+
+    const goal = await Goal.findOneAndDelete({
+      _id: req.params.id,
+      user, // 👈 ownership check
+    });
+
+    if (!goal) {
+      return res.status(404).json({ message: "Goal not found" });
+    }
 
     res.json({
       message: "Goal deleted",
@@ -81,19 +118,29 @@ export const deleteGoal = async (req, res) => {
 };
 
 
+// ============================
 // ADD Savings to Goal
+// ============================
 export const addSavingsToGoal = async (req, res) => {
   try {
 
+    const user = req.user?._id;
     const { amount } = req.body;
 
-    const goal =
-      await Goal.findById(req.params.id);
+    const goal = await Goal.findOne({
+      _id: req.params.id,
+      user, // 👈 ownership check
+    });
+
+    if (!goal) {
+      return res.status(404).json({ message: "Goal not found" });
+    }
 
     goal.savedAmount += amount;
 
-    if (goal.savedAmount >= goal.targetAmount)
+    if (goal.savedAmount >= goal.targetAmount) {
       goal.status = "completed";
+    }
 
     await goal.save();
 
