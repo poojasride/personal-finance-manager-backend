@@ -6,56 +6,79 @@ import Goal from "../models/goal.js";
 // ==============================
 export const getFinancialForecast = async (req, res) => {
   try {
-    const userId = req.user.id; // ✅ get logged-in user
+    const userId = req.user.id;
 
-    console.log("userId:", userId);
+    // ✅ Last 6 months filter
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-    // Monthly income avg
-    const income = await Transaction.aggregate([
-      { $match: { type: "income", user: userId } },
+    const transactions = await Transaction.aggregate([
+      {
+        $match: {
+          user: userId,
+          date: { $gte: sixMonthsAgo },
+        },
+      },
       {
         $group: {
           _id: {
             month: { $month: "$date" },
             year: { $year: "$date" },
+            type: "$type",
           },
           total: { $sum: "$amount" },
         },
       },
     ]);
 
-    console.log("income:", income);
+    let incomeMap = {};
+    let expenseMap = {};
 
-    // Monthly expense avg
-    const expense = await Transaction.aggregate([
-      { $match: { type: "expense", user: userId } }, // ✅ filter user
-      {
-        $group: {
-          _id: {
-            month: { $month: "$date" },
-            year: { $year: "$date" },
-          },
-          total: { $sum: "$amount" },
-        },
-      },
+    // ✅ Separate income & expense
+    transactions.forEach((t) => {
+      const key = `${t._id.month}-${t._id.year}`;
+
+      if (t._id.type === "income") {
+        incomeMap[key] = t.total;
+      } else {
+        expenseMap[key] = t.total;
+      }
+    });
+
+    // ✅ Combine all months
+    const months = new Set([
+      ...Object.keys(incomeMap),
+      ...Object.keys(expenseMap),
     ]);
 
-    console.log("expense:", expense);
+    let totalIncome = 0;
+    let totalExpense = 0;
 
-    const avgIncome =
-      income.reduce((a, b) => a + b.total, 0) / (income.length || 1);
+    months.forEach((m) => {
+      totalIncome += incomeMap[m] || 0;
+      totalExpense += expenseMap[m] || 0;
+    });
 
-    const avgExpense =
-      expense.reduce((a, b) => a + b.total, 0) / (expense.length || 1);
+    const monthCount = months.size || 1;
 
+    const avgIncome = totalIncome / monthCount;
+    const avgExpense = totalExpense / monthCount;
     const monthlySavings = avgIncome - avgExpense;
 
-    console.log("monthlySavings:", monthlySavings);
+    // ✅ Smart suggestion
+    let suggestion = "Good job! Keep saving 👍";
+    if (monthlySavings < 0) {
+      suggestion = "⚠️ You are overspending. Try reducing expenses.";
+    } else if (monthlySavings < avgIncome * 0.2) {
+      suggestion = "💡 Try to save at least 20% of your income.";
+    }
+
     res.json({
       avgIncome,
       avgExpense,
       monthlySavings,
       projectedYearlySavings: monthlySavings * 12,
+      suggestion,
     });
   } catch (error) {
     res.status(500).json({
@@ -71,7 +94,7 @@ export const forecastGoalCompletion = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // ✅ ensure goal belongs to user
+    // ✅ Find goal
     const goal = await Goal.findOne({
       _id: req.params.id,
       user: userId,
@@ -83,36 +106,89 @@ export const forecastGoalCompletion = async (req, res) => {
       });
     }
 
-    // ✅ get avg monthly income for user
+    // ✅ Last 6 months transactions
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
     const transactions = await Transaction.aggregate([
-      { $match: { type: "income", user: userId } }, // filter user
+      {
+        $match: {
+          user: userId,
+          date: { $gte: sixMonthsAgo },
+        },
+      },
       {
         $group: {
-          _id: null,
-          avgIncome: { $avg: "$amount" },
+          _id: {
+            month: { $month: "$date" },
+            year: { $year: "$date" },
+            type: "$type",
+          },
+          total: { $sum: "$amount" },
         },
       },
     ]);
 
-    const monthlySavings = transactions[0]?.avgIncome || 0;
+    let incomeMap = {};
+    let expenseMap = {};
+
+    transactions.forEach((t) => {
+      const key = `${t._id.month}-${t._id.year}`;
+
+      if (t._id.type === "income") {
+        incomeMap[key] = t.total;
+      } else {
+        expenseMap[key] = t.total;
+      }
+    });
+
+    const months = new Set([
+      ...Object.keys(incomeMap),
+      ...Object.keys(expenseMap),
+    ]);
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    months.forEach((m) => {
+      totalIncome += incomeMap[m] || 0;
+      totalExpense += expenseMap[m] || 0;
+    });
+
+    const avgIncome = totalIncome / (months.size || 1);
+    const avgExpense = totalExpense / (months.size || 1);
+    const monthlySavings = avgIncome - avgExpense;
 
     const remaining = goal.targetAmount - goal.savedAmount;
 
+    // ❌ No savings case
     if (monthlySavings <= 0) {
       return res.json({
+        monthlySavings,
         monthsNeeded: "Infinity",
         estimatedCompletionDate: null,
-        message: "No savings detected",
+        message: "⚠️ You are not saving money currently",
       });
     }
 
-    const monthsNeeded = remaining / monthlySavings;
+    const monthsNeeded = Math.ceil(remaining / monthlySavings);
+
+    const estimatedCompletionDate = new Date();
+    estimatedCompletionDate.setMonth(
+      estimatedCompletionDate.getMonth() + monthsNeeded
+    );
+
+    // ✅ Extra suggestion
+    let suggestion = "On track 👍";
+    if (goal.deadline && estimatedCompletionDate > goal.deadline) {
+      suggestion = "⚠️ You may miss your deadline. Increase savings!";
+    }
 
     res.json({
-      monthsNeeded: Math.ceil(monthsNeeded),
-      estimatedCompletionDate: new Date(
-        Date.now() + monthsNeeded * 30 * 24 * 60 * 60 * 1000,
-      ),
+      monthlySavings,
+      monthsNeeded,
+      estimatedCompletionDate,
+      suggestion,
     });
   } catch (error) {
     res.status(500).json({
