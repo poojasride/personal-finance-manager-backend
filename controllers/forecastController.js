@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Transaction from "../models/transaction.js";
 import Goal from "../models/goal.js";
 
@@ -6,7 +7,10 @@ import Goal from "../models/goal.js";
 // ==============================
 export const getFinancialForecast = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // ✅ FIX: convert to ObjectId
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+
+    console.log("UserId:", userId);
 
     // ✅ Last 6 months filter
     const sixMonthsAgo = new Date();
@@ -15,7 +19,8 @@ export const getFinancialForecast = async (req, res) => {
     const transactions = await Transaction.aggregate([
       {
         $match: {
-          user: userId,
+          user: userId, // ✅ IMPORTANT FIX
+          // 🔥 TEMP: comment this if no data
           date: { $gte: sixMonthsAgo },
         },
       },
@@ -31,10 +36,12 @@ export const getFinancialForecast = async (req, res) => {
       },
     ]);
 
+    // 🧪 DEBUG
+    console.log("Transactions:", transactions);
+
     let incomeMap = {};
     let expenseMap = {};
 
-    // ✅ Separate income & expense
     transactions.forEach((t) => {
       const key = `${t._id.month}-${t._id.year}`;
 
@@ -45,7 +52,6 @@ export const getFinancialForecast = async (req, res) => {
       }
     });
 
-    // ✅ Combine all months
     const months = new Set([
       ...Object.keys(incomeMap),
       ...Object.keys(expenseMap),
@@ -65,12 +71,13 @@ export const getFinancialForecast = async (req, res) => {
     const avgExpense = totalExpense / monthCount;
     const monthlySavings = avgIncome - avgExpense;
 
-    // ✅ Smart suggestion
+    // 💡 Suggestion
     let suggestion = "Good job! Keep saving 👍";
+
     if (monthlySavings < 0) {
-      suggestion = "⚠️ You are overspending. Try reducing expenses.";
+      suggestion = "⚠️ You are overspending. Reduce expenses.";
     } else if (monthlySavings < avgIncome * 0.2) {
-      suggestion = "💡 Try to save at least 20% of your income.";
+      suggestion = "💡 Try saving at least 20% of income.";
     }
 
     res.json({
@@ -81,6 +88,7 @@ export const getFinancialForecast = async (req, res) => {
       suggestion,
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       message: error.message,
     });
@@ -92,7 +100,8 @@ export const getFinancialForecast = async (req, res) => {
 // ==============================
 export const forecastGoalCompletion = async (req, res) => {
   try {
-    const userId = req.user.id;
+    // ✅ FIX: convert to ObjectId
+    const userId = new mongoose.Types.ObjectId(req.user.id);
 
     // ✅ Find goal
     const goal = await Goal.findOne({
@@ -106,14 +115,14 @@ export const forecastGoalCompletion = async (req, res) => {
       });
     }
 
-    // ✅ Last 6 months transactions
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
     const transactions = await Transaction.aggregate([
       {
         $match: {
-          user: userId,
+          user: userId, // ✅ FIXED
+          // 🔥 TEMP: comment if no data
           date: { $gte: sixMonthsAgo },
         },
       },
@@ -128,6 +137,8 @@ export const forecastGoalCompletion = async (req, res) => {
         },
       },
     ]);
+
+    console.log("Goal Transactions:", transactions);
 
     let incomeMap = {};
     let expenseMap = {};
@@ -157,6 +168,7 @@ export const forecastGoalCompletion = async (req, res) => {
 
     const avgIncome = totalIncome / (months.size || 1);
     const avgExpense = totalExpense / (months.size || 1);
+
     const monthlySavings = avgIncome - avgExpense;
 
     const remaining = goal.targetAmount - goal.savedAmount;
@@ -178,8 +190,9 @@ export const forecastGoalCompletion = async (req, res) => {
       estimatedCompletionDate.getMonth() + monthsNeeded
     );
 
-    // ✅ Extra suggestion
+    // 💡 Suggestion
     let suggestion = "On track 👍";
+
     if (goal.deadline && estimatedCompletionDate > goal.deadline) {
       suggestion = "⚠️ You may miss your deadline. Increase savings!";
     }
@@ -191,6 +204,7 @@ export const forecastGoalCompletion = async (req, res) => {
       suggestion,
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       message: error.message,
     });
