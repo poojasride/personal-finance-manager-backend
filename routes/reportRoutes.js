@@ -1,26 +1,28 @@
 import express from "express";
 
 import {
-    getExpenseReport,
-    getIncomeReport,
-    getFinancialSummary,
-    getBudgetReport,
-    getExpenseByCategory,
-    getMonthlyTrend
+  getExpenseReport,
+  getIncomeReport,
+  getFinancialSummary,
+  getBudgetReport,
+  getExpenseByCategory,
+  getMonthlyTrend,
 } from "../controllers/reportController.js";
+
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.get("/expenses", getExpenseReport);
+router.get("/expenses", protect, getExpenseReport);
 
-router.get("/income", getIncomeReport);
+router.get("/income", protect, getIncomeReport);
 
-router.get("/summary", getFinancialSummary);
+router.get("/summary", protect, getFinancialSummary);
 
-router.get("/budgets", getBudgetReport);
+router.get("/budgets", protect, getBudgetReport);
 
-router.get("/expense-category", getExpenseByCategory);
+router.get("/expense-category", protect, getExpenseByCategory);
 
-router.get("/monthly-trend", getMonthlyTrend);
+router.get("/monthly-trend", protect, getMonthlyTrend);
 
 export default router;
