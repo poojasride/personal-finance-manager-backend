@@ -1,7 +1,6 @@
 import Transaction from "../models/transaction.js";
 import Budget from "../models/budget.js";
 
-
 // =============================
 // 📊 EXPENSE REPORT
 // =============================
@@ -26,9 +25,11 @@ export const getExpenseReport = async (req, res) => {
       filter.category = category;
     }
 
-    const expenses = await Transaction.find(filter).sort({ date: -1 });
+    const expenses = await Transaction.find(filter)
+      .sort({ date: -1 })
+      .lean();
 
-    const totalExpenseAgg = await Transaction.aggregate([
+    const totalAgg = await Transaction.aggregate([
       { $match: filter },
       {
         $group: {
@@ -38,9 +39,8 @@ export const getExpenseReport = async (req, res) => {
       },
     ]);
 
-    const total = totalExpenseAgg[0]?.total || 0;
+    const total = totalAgg.length > 0 ? totalAgg[0].total : 0;
 
-    // 💡 Insight
     let insight = "Spending is under control 👍";
     if (total > 50000) insight = "High spending ⚠️";
     if (total > 100000) insight = "Critical spending 🚨";
@@ -58,7 +58,7 @@ export const getExpenseReport = async (req, res) => {
 
 
 // =============================
-// 📊 EXPENSE BY CATEGORY (Chart)
+// 📊 EXPENSE BY CATEGORY
 // =============================
 export const getExpenseByCategory = async (req, res) => {
   try {
@@ -72,6 +72,7 @@ export const getExpenseByCategory = async (req, res) => {
           total: { $sum: "$amount" },
         },
       },
+      { $sort: { total: -1 } }
     ]);
 
     res.json(data);
@@ -91,9 +92,9 @@ export const getIncomeReport = async (req, res) => {
     const incomes = await Transaction.find({
       user: userId,
       type: "income",
-    });
+    }).lean();
 
-    const totalIncomeAgg = await Transaction.aggregate([
+    const totalAgg = await Transaction.aggregate([
       { $match: { user: userId, type: "income" } },
       {
         $group: {
@@ -103,7 +104,7 @@ export const getIncomeReport = async (req, res) => {
       },
     ]);
 
-    const total = totalIncomeAgg[0]?.total || 0;
+    const total = totalAgg.length > 0 ? totalAgg[0].total : 0;
 
     res.json({
       totalIncome: total,
@@ -123,14 +124,15 @@ export const getFinancialSummary = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const incomeAgg = await Transaction.aggregate([
-      { $match: { user: userId, type: "income" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
-    ]);
-
-    const expenseAgg = await Transaction.aggregate([
-      { $match: { user: userId, type: "expense" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+    const [incomeAgg, expenseAgg] = await Promise.all([
+      Transaction.aggregate([
+        { $match: { user: userId, type: "income" } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
+      Transaction.aggregate([
+        { $match: { user: userId, type: "expense" } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
+      ]),
     ]);
 
     const income = incomeAgg[0]?.total || 0;
@@ -154,49 +156,47 @@ export const getFinancialSummary = async (req, res) => {
 
 
 // =============================
-// 🎯 BUDGET REPORT
+// 🎯 BUDGET REPORT (OPTIMIZED)
 // =============================
 export const getBudgetReport = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const budgets = await Budget.find({ user: userId });
+    const budgets = await Budget.find({ user: userId }).lean();
 
-    const report = [];
-
-    for (let budget of budgets) {
-      const spentAgg = await Transaction.aggregate([
-        {
-          $match: {
-            user: userId,
-            type: "expense",
-            category: budget.category,
-          },
+    // 🔥 Get all expenses grouped once (OPTIMIZED)
+    const expenses = await Transaction.aggregate([
+      { $match: { user: userId, type: "expense" } },
+      {
+        $group: {
+          _id: "$category",
+          total: { $sum: "$amount" },
         },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$amount" },
-          },
-        },
-      ]);
+      },
+    ]);
 
-      const spentAmount = spentAgg[0]?.total || 0;
+    const expenseMap = {};
+    expenses.forEach((item) => {
+      expenseMap[item._id] = item.total;
+    });
+
+    const report = budgets.map((budget) => {
+      const spentAmount = expenseMap[budget.category] || 0;
       const remaining = budget.limitAmount - spentAmount;
 
       let suggestion = "On track 👍";
       if (remaining < 0) suggestion = "Budget exceeded 🚨";
       else if (remaining < 1000) suggestion = "Near limit ⚠️";
 
-      report.push({
+      return {
         category: budget.category,
         budgetLimit: budget.limitAmount,
         spentAmount,
         remaining,
         exceeded: spentAmount > budget.limitAmount,
         suggestion,
-      });
-    }
+      };
+    });
 
     res.json(report);
   } catch (error) {
