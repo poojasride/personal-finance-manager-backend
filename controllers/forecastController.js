@@ -1,17 +1,18 @@
 import Transaction from "../models/transaction.js";
 import Goal from "../models/goal.js";
 
-
 // ==============================
-// 📊 FINANCIAL FORECAST 
+// 📊 FINANCIAL FORECAST
 // ==============================
 export const getFinancialForecast = async (req, res) => {
   try {
     const userId = req.user.id; // ✅ get logged-in user
 
+    console.log("userId:", userId);
+
     // Monthly income avg
     const income = await Transaction.aggregate([
-      { $match: { type: "income", user: userId } }, // ✅ filter user
+      { $match: { type: "income", user: userId } },
       {
         $group: {
           _id: {
@@ -22,6 +23,8 @@ export const getFinancialForecast = async (req, res) => {
         },
       },
     ]);
+
+    console.log("income:", income);
 
     // Monthly expense avg
     const expense = await Transaction.aggregate([
@@ -37,23 +40,23 @@ export const getFinancialForecast = async (req, res) => {
       },
     ]);
 
+    console.log("expense:", expense);
+
     const avgIncome =
-      income.reduce((a, b) => a + b.total, 0) /
-      (income.length || 1);
+      income.reduce((a, b) => a + b.total, 0) / (income.length || 1);
 
     const avgExpense =
-      expense.reduce((a, b) => a + b.total, 0) /
-      (expense.length || 1);
+      expense.reduce((a, b) => a + b.total, 0) / (expense.length || 1);
 
     const monthlySavings = avgIncome - avgExpense;
 
+    console.log("monthlySavings:", monthlySavings);
     res.json({
       avgIncome,
       avgExpense,
       monthlySavings,
       projectedYearlySavings: monthlySavings * 12,
     });
-
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -61,9 +64,8 @@ export const getFinancialForecast = async (req, res) => {
   }
 };
 
-
 // ==============================
-// 🎯 GOAL FORECAST 
+// 🎯 GOAL FORECAST
 // ==============================
 export const forecastGoalCompletion = async (req, res) => {
   try {
@@ -109,10 +111,9 @@ export const forecastGoalCompletion = async (req, res) => {
     res.json({
       monthsNeeded: Math.ceil(monthsNeeded),
       estimatedCompletionDate: new Date(
-        Date.now() + monthsNeeded * 30 * 24 * 60 * 60 * 1000
+        Date.now() + monthsNeeded * 30 * 24 * 60 * 60 * 1000,
       ),
     });
-
   } catch (error) {
     res.status(500).json({
       message: error.message,
