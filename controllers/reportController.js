@@ -3,212 +3,231 @@ import Budget from "../models/budget.js";
 
 
 // =============================
-// Expense Report
+// 📊 EXPENSE REPORT
 // =============================
 export const getExpenseReport = async (req, res) => {
-    try {
+  try {
+    const userId = req.user.id;
+    const { startDate, endDate, category } = req.query;
 
-        const { startDate, endDate, category } = req.query;
+    let filter = {
+      user: userId,
+      type: "expense",
+    };
 
-        let filter = { type: "expense" };
-
-        if (startDate && endDate) {
-            filter.date = {
-                $gte: new Date(startDate),
-                $lte: new Date(endDate)
-            };
-        }
-
-        if (category) {
-            filter.category = category;
-        }
-
-        const expenses = await Transaction.find(filter);
-
-        const totalExpense = await Transaction.aggregate([
-            { $match: filter },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: "$amount" }
-                }
-            }
-        ]);
-
-        res.json({
-            totalExpense: totalExpense[0]?.total || 0,
-            count: expenses.length,
-            expenses
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (startDate && endDate) {
+      filter.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
     }
+
+    if (category) {
+      filter.category = category;
+    }
+
+    const expenses = await Transaction.find(filter).sort({ date: -1 });
+
+    const totalExpenseAgg = await Transaction.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$amount" },
+        },
+      },
+    ]);
+
+    const total = totalExpenseAgg[0]?.total || 0;
+
+    // 💡 Insight
+    let insight = "Spending is under control 👍";
+    if (total > 50000) insight = "High spending ⚠️";
+    if (total > 100000) insight = "Critical spending 🚨";
+
+    res.json({
+      totalExpense: total,
+      count: expenses.length,
+      expenses,
+      insight,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
 // =============================
-// Expense Category Chart Data
+// 📊 EXPENSE BY CATEGORY (Chart)
 // =============================
 export const getExpenseByCategory = async (req, res) => {
-    try {
+  try {
+    const userId = req.user.id;
 
-        const data = await Transaction.aggregate([
-            { $match: { type: "expense" } },
-            {
-                $group: {
-                    _id: "$category",
-                    total: { $sum: "$amount" }
-                }
-            }
-        ]);
+    const data = await Transaction.aggregate([
+      { $match: { user: userId, type: "expense" } },
+      {
+        $group: {
+          _id: "$category",
+          total: { $sum: "$amount" },
+        },
+      },
+    ]);
 
-        res.json(data);
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
 // =============================
-// Income Report
+// 💰 INCOME REPORT
 // =============================
 export const getIncomeReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-    try {
+    const incomes = await Transaction.find({
+      user: userId,
+      type: "income",
+    });
 
-        const incomes = await Transaction.find({ type: "income" });
+    const totalIncomeAgg = await Transaction.aggregate([
+      { $match: { user: userId, type: "income" } },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: "$amount" },
+        },
+      },
+    ]);
 
-        const totalIncome = await Transaction.aggregate([
-            { $match: { type: "income" } },
-            {
-                $group: {
-                    _id: null,
-                    total: { $sum: "$amount" }
-                }
-            }
-        ]);
+    const total = totalIncomeAgg[0]?.total || 0;
 
-        res.json({
-            totalIncome: totalIncome[0]?.total || 0,
-            count: incomes.length,
-            incomes
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-
+    res.json({
+      totalIncome: total,
+      count: incomes.length,
+      incomes,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
 // =============================
-// Financial Summary
+// 📈 FINANCIAL SUMMARY
 // =============================
 export const getFinancialSummary = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-    try {
+    const incomeAgg = await Transaction.aggregate([
+      { $match: { user: userId, type: "income" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
 
-        const totalIncome = await Transaction.aggregate([
-            { $match: { type: "income" } },
-            { $group: { _id: null, total: { $sum: "$amount" } } }
-        ]);
+    const expenseAgg = await Transaction.aggregate([
+      { $match: { user: userId, type: "expense" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]);
 
-        const totalExpense = await Transaction.aggregate([
-            { $match: { type: "expense" } },
-            { $group: { _id: null, total: { $sum: "$amount" } } }
-        ]);
+    const income = incomeAgg[0]?.total || 0;
+    const expense = expenseAgg[0]?.total || 0;
+    const savings = income - expense;
 
-        const income = totalIncome[0]?.total || 0;
-        const expense = totalExpense[0]?.total || 0;
+    let status = "Good 👍";
+    if (savings < 0) status = "Loss ⚠️";
+    if (savings > 50000) status = "Excellent 💰";
 
-        res.json({
-            totalIncome: income,
-            totalExpense: expense,
-            savings: income - expense
-        });
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-
+    res.json({
+      totalIncome: income,
+      totalExpense: expense,
+      savings,
+      status,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
 // =============================
-// Budget Report
+// 🎯 BUDGET REPORT
 // =============================
 export const getBudgetReport = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-    try {
+    const budgets = await Budget.find({ user: userId });
 
-        const budgets = await Budget.find();
+    const report = [];
 
-        const report = [];
+    for (let budget of budgets) {
+      const spentAgg = await Transaction.aggregate([
+        {
+          $match: {
+            user: userId,
+            type: "expense",
+            category: budget.category,
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
+      ]);
 
-        for (let budget of budgets) {
+      const spentAmount = spentAgg[0]?.total || 0;
+      const remaining = budget.limitAmount - spentAmount;
 
-            const spent = await Transaction.aggregate([
-                {
-                    $match: {
-                        type: "expense",
-                        category: budget.category
-                    }
-                },
-                {
-                    $group: {
-                        _id: null,
-                        total: { $sum: "$amount" }
-                    }
-                }
-            ]);
+      let suggestion = "On track 👍";
+      if (remaining < 0) suggestion = "Budget exceeded 🚨";
+      else if (remaining < 1000) suggestion = "Near limit ⚠️";
 
-            const spentAmount = spent[0]?.total || 0;
-
-            report.push({
-                category: budget.category,
-                budgetLimit: budget.limitAmount,
-                spentAmount,
-                remaining: budget.limitAmount - spentAmount,
-                exceeded: spentAmount > budget.limitAmount
-            });
-        }
-
-        res.json(report);
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+      report.push({
+        category: budget.category,
+        budgetLimit: budget.limitAmount,
+        spentAmount,
+        remaining,
+        exceeded: spentAmount > budget.limitAmount,
+        suggestion,
+      });
     }
 
+    res.json(report);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 
 // =============================
-// Monthly Expense Trend (Chart)
+// 📅 MONTHLY TREND
 // =============================
 export const getMonthlyTrend = async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-    try {
+    const trend = await Transaction.aggregate([
+      { $match: { user: userId, type: "expense" } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$date" },
+            month: { $month: "$date" },
+          },
+          total: { $sum: "$amount" },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ]);
 
-        const trend = await Transaction.aggregate([
-            { $match: { type: "expense" } },
-            {
-                $group: {
-                    _id: {
-                        year: { $year: "$date" },
-                        month: { $month: "$date" }
-                    },
-                    total: { $sum: "$amount" }
-                }
-            },
-            { $sort: { "_id.year": 1, "_id.month": 1 } }
-        ]);
-
-        res.json(trend);
-
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-
+    res.json(trend);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
