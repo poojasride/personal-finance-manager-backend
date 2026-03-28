@@ -4,6 +4,7 @@ import {
   checkUpcomingBills,
   checkRecurringExpenses,
 } from "../services/notificationService.js";
+import mongoose from "mongoose";
 
 cron.schedule("45 7 * * *", async () => {
 
@@ -12,10 +13,7 @@ cron.schedule("45 7 * * *", async () => {
   const users = await User.find();
 
   for (const user of users) {
-
-    await checkUpcomingBills(user._id);
-    await checkRecurringExpenses(user._id);
-
+    await checkUpcomingBills(new mongoose.Types.ObjectId(user._id));
+    await checkRecurringExpenses(new mongoose.Types.ObjectId(user._id));
   }
-
 });
