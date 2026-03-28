@@ -6,7 +6,7 @@ import {
 } from "../services/notificationService.js";
 import mongoose from "mongoose";
 
-cron.schedule("10 8 * * *", async () => {
+cron.schedule("37 14 * * *", async () => {
 
   console.log("Running daily finance reminders...");
 
