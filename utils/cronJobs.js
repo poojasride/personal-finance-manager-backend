@@ -5,7 +5,7 @@ import {
   checkRecurringExpenses,
 } from "../services/notificationService.js";
 
-cron.schedule("0 8 * * *", async () => {
+cron.schedule("37 7 * * *", async () => {
 
   console.log("Running daily finance reminders...");
 
